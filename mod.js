@@ -1,34 +1,22 @@
 (function () {
   'use strict';
   var root = document.getElementById('mod-root');
-  if (!root || !window.FesOrderSDK) return;
-  var hook = window.FesOrderSDK.hookName;
-  if (hook === 'registerAction') {
-    root.innerHTML = '<button class="offline-status" type="button" aria-live="polite"><span class="offline-status__dot"></span><span class="offline-status__label">通信状態を確認中</span></button>';
-    var button = root.querySelector('.offline-status');
-    var label = root.querySelector('.offline-status__label');
-    function updateStatus() {
-      var online = navigator.onLine;
-      button.classList.toggle('is-offline', !online);
-      label.textContent = online ? 'オンライン' : 'オフライン';
-      button.title = online ? '通信可能です' : 'FesFlowは会計確定を送信できません';
-    }
-    updateStatus();
-    window.addEventListener('online', updateStatus);
-    window.addEventListener('offline', updateStatus);
-    button.addEventListener('click', function () {
-      alert(navigator.onLine
-        ? '現在オンラインです。通常どおり会計できます。'
-        : '現在オフラインです。FesFlowの現行モッドAPIでは注文の保存・同期はできません。注文内容を控え、復旧後に入力してください。');
-    });
-    return;
-  }
-  if (hook === 'registerBodyBottom') {
-    root.innerHTML = '<section class="offline-panel" hidden><strong>オフライン</strong><span>通信が復旧するまで会計確定を待ち、注文内容を控えてください。</span></section>';
-    var panel = root.querySelector('.offline-panel');
-    function updatePanel() { panel.hidden = navigator.onLine; }
-    updatePanel();
-    window.addEventListener('online', updatePanel);
-    window.addEventListener('offline', updatePanel);
-  }
+  var sdk = window.FesOrderSDK;
+  if (!root || !sdk) return;
+  var LIMIT = 5;
+  var ALLERGENS = [['卵',['卵','たまご','玉子','エッグ','マヨネーズ']],['乳',['乳','牛乳','ミルク','チーズ','バター','クリーム']],['小麦',['小麦','パン','麺','うどん','ラーメン']],['そば',['そば','蕎麦']],['落花生',['落花生','ピーナッツ']],['えび',['えび','エビ','海老']],['かに',['かに','カニ','蟹']],['くるみ',['くるみ','クルミ','胡桃']]];
+  var checks = [false,false,false,false,false], open = false, data = sdk.getData() || {};
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+  function menus(){return Array.isArray(data.menus)?data.menus:[];}
+  function cart(){return Array.isArray(data.cart)?data.cart:[];}
+  function stockWarnings(){return menus().filter(function(m){return m.soldOut||(m.inventoryEnabled&&Number(m.stockQuantity)<=LIMIT);}).sort(function(a,b){return Number(a.stockQuantity||0)-Number(b.stockQuantity||0);});}
+  function cartMenus(){var map={};menus().forEach(function(m){map[String(m.id)]=m;});return cart().map(function(line){var id=line.menuId||(line.menu&&line.menu.id)||line.id;return map[String(id)]||line.menu||line;}).filter(Boolean);}
+  function cautions(){return cartMenus().map(function(m){var text=[m.name,m.description].filter(Boolean).join(' ');var found=ALLERGENS.filter(function(a){return a[1].some(function(k){return text.indexOf(k)!==-1;});}).map(function(a){return a[0];});return{name:m.name||'名称未設定の商品',description:m.description||'',allergens:found};}).filter(function(x){return x.allergens.length||x.description;});}
+  function result(){return{stock:stockWarnings(),cautions:cautions()};}
+  function action(){if(open)return full();var r=result(),count=r.stock.length+r.cautions.length;root.innerHTML='<button class="assistant-button" type="button"><span>レジ確認</span>'+(count?'<b class="assistant-badge">'+count+'</b>':'<b class="assistant-ok">OK</b>')+'</button>';root.querySelector('button').onclick=function(){open=true;full();sdk.sendAction('SET_FULLSCREEN',{enabled:true});};}
+  function full(){var r=result();var labels=['注文内容を復唱した','数量を確認した','アレルギー・注意事項を確認した','支払方法と預かり金を確認した','商品引渡し方法を確認した'];root.innerHTML='<main class="assistant-fullscreen"><header><div><p>REGISTER ASSISTANT</p><h1>会計前確認</h1></div><button class="assistant-close" type="button">閉じる ×</button></header><div class="assistant-grid"><section><h2>在庫警告 <span>'+r.stock.length+'</span></h2>'+(r.stock.length?'<ul class="warning-list">'+r.stock.map(function(m){return'<li><strong>'+esc(m.name)+'</strong><b>'+(m.soldOut?'売り切れ':'残り '+Number(m.stockQuantity||0))+'</b></li>';}).join('')+'</ul>':'<p class="empty-message">在庫警告はありません</p>')+'</section><section><h2>アレルギー・注意事項 <span>'+r.cautions.length+'</span></h2>'+(r.cautions.length?'<ul class="allergen-list">'+r.cautions.map(function(x){return'<li><strong>'+esc(x.name)+'</strong>'+(x.allergens.length?'<div class="allergen-tags">'+x.allergens.map(function(n){return'<b>'+esc(n)+'</b>';}).join('')+'</div>':'')+(x.description?'<p>'+esc(x.description)+'</p>':'')+'</li>';}).join('')+'</ul>':'<p class="empty-message">カート内商品に登録済みの注意事項はありません</p>')+'<p class="disclaimer">表示は商品名・説明文のキーワード抽出です。最終確認は原材料表示と担当者へ行ってください。</p></section></div><section class="checklist"><h2>会計前チェックリスト</h2>'+labels.map(function(label,i){return'<label><input type="checkbox" data-check="'+i+'"'+(checks[i]?' checked':'')+'><span>'+esc(label)+'</span></label>';}).join('')+'<div class="checklist-progress"><span></span><b></b></div></section></main>';root.querySelector('.assistant-close').onclick=function(){open=false;sdk.sendAction('SET_FULLSCREEN',{enabled:false});action();};root.querySelectorAll('[data-check]').forEach(function(input){input.onchange=function(){checks[Number(input.getAttribute('data-check'))]=input.checked;progress();};});progress();}
+  function progress(){var bar=root.querySelector('.checklist-progress span'),text=root.querySelector('.checklist-progress b');if(!bar||!text)return;var done=checks.filter(Boolean).length;bar.style.width=(done/checks.length*100)+'%';text.textContent=done===checks.length?'確認完了':done+' / '+checks.length;}
+  function bottom(){var r=result(),warn=r.stock.length||r.cautions.length;root.innerHTML='<aside class="assistant-summary '+(warn?'has-warning':'')+'"><strong>'+(warn?'確認事項があります':'在庫・注意事項 OK')+'</strong><span>在庫 '+r.stock.length+'件 / 注意事項 '+r.cautions.length+'件</span></aside>';}
+  function render(){if(sdk.hookName==='registerAction')action();if(sdk.hookName==='registerBodyBottom')bottom();}
+  sdk.onUpdate(function(next){data=next||{};render();});
 })();
