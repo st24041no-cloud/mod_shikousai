@@ -1,9 +1,9 @@
 {
   "id": "jp.shikosai.offline-pos",
   "name": "レジ確認アシスタント",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": "st24041no-cloud",
-  "description": "在庫警告、アレルギー・注意事項、会計前チェックリストをレジ画面に追加します。",
+  "description": "在庫警告、アレルギー・注意事項、会計前チェックリスト、10件ごとの解凍通知をレジ画面に追加します。",
   "hooks": {
     "registerAction": {
       "js": "https://st24041no-cloud.github.io/mod_shikousai/mod.js",
