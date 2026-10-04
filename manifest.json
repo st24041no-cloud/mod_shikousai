@@ -1,0 +1,25 @@
+{
+  "id": "jp.shikosai.offline-pos",
+  "name": "オフラインレジ補助",
+  "version": "1.1.0",
+  "author": "st24041no-cloud",
+  "description": "レジ画面に通信状態とオフライン運用上の注意を表示するFesFlow用モッドです。",
+  "hooks": {
+    "registerAction": {
+      "js": "https://st24041no-cloud.github.io/mod_shikousai/mod.js",
+      "css": "https://st24041no-cloud.github.io/mod_shikousai/mod.css"
+    },
+    "registerBodyBottom": {
+      "js": "https://st24041no-cloud.github.io/mod_shikousai/mod.js",
+      "css": "https://st24041no-cloud.github.io/mod_shikousai/mod.css"
+    }
+  },
+  "settingsSchema": [
+    {
+      "key": "warningText",
+      "label": "オフライン時の案内文",
+      "type": "text",
+      "default": "通信が復旧するまで会計確定を待ち、注文内容を控えてください。"
+    }
+  ]
+}

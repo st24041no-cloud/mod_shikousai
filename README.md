@@ -1,4 +1,23 @@
-# オフラインレジ拡張
+# FesFlow オフラインレジ補助モッド
+
+## 導入URL
+
+```text
+https://st24041no-cloud.github.io/mod_shikousai/manifest.json
+```
+
+FesFlowの「URLからモッドを導入」には、ディレクトリではなく上記の `manifest.json` の完全なURLを入力してください。
+
+## FesFlow側の現在の制約
+
+FesFlowのモッドは `sandbox="allow-scripts"` のiframe内で実行され、CSPの `connect-src 'none'` によって通信できません。公開されているSDKから親画面へ送れる操作も `ADD_TO_CART`、`CLEAR_CART`、`SET_FULLSCREEN` に限られます。このため、モッドだけでオフライン注文を永続保存し、復旧後にFesFlow APIへ同期することはできません。本バージョンはレジ画面への通信状態・警告表示までを、正式なフック仕様で実装しています。
+
+完全なオフライン会計には、FesFlow本体へ次の追加が必要です。
+
+- 注文作成API呼び出しをService WorkerまたはIndexedDBキューへ退避
+- 復旧時のBackground Syncと冪等キーによる再送
+- モッドSDKへの `QUEUE_ORDER`、`GET_PENDING_ORDERS` 等の安全なアクション追加
+- サーバー側での在庫競合記録と二重登録防止
 
 通信が切れても IndexedDB に商品・在庫・取引を保存し、会計を継続する拡張機能です。復旧後は取引ごとの `Idempotency-Key` を使って再送するため、サーバー側が同キーを一意制約として扱えば二重売上を防げます。
 
